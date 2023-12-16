@@ -1,8 +1,13 @@
 package org.example.zmq;
 
+import HessianObj.HessianSerialize;
+import HessianObj.SerializeFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.zeromq.SocketType;
 import org.zeromq.ZMQ;
 import java.nio.ByteBuffer;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -12,7 +17,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class ZmqProxy {
-
+    Logger logger = LogManager.getLogger(BDBLocalUtility.class);
     private static final int  maxNum= 10000;//大于时分发
     private static final int  maxThNum= 10;//最大线程数
 
@@ -68,7 +73,7 @@ public class ZmqProxy {
    private AtomicInteger  dtanum=new AtomicInteger(0);//数据包
     private  String loclIP="";//解析本地IP
 
-   private ZMQ.Context context=ZMQ.context(1);
+   private ZMQ.Context context=ZMQ.context(2);
     private ConcurrentHashMap<String,PushSocket> map=new ConcurrentHashMap<>();//push管理
 
     private ConcurrentHashMap<String,Integer> mapRate=new ConcurrentHashMap<>();//上报的速率
@@ -80,6 +85,7 @@ public class ZmqProxy {
 
    private IBDBUtil bdbOperatorUtil=null;//数据库操作
 
+    private SerializeFactory serializeFactory=new HessianSerialize();
     /**
      * 开启
      */
@@ -111,6 +117,11 @@ public class ZmqProxy {
          else if(IsStore)
          {
              System.out.println("没有设置存储网络地址localNetStore或设置为本地存储islocalDB");
+             logger.info("没有设置存储网络地址localNetStore或设置为本地存储islocalDB");
+         }
+         if(bdbOperatorUtil!=null)
+         {
+             dbopt();
          }
     }
 
@@ -134,7 +145,7 @@ public class ZmqProxy {
                     RouterAddress="inproc://"+RouterAddress;
                 }
                 sub.bind(SubAddress);
-                //pub.bind(RouterAddress);
+
                int p= pub.bindToRandomPort("tcp://127.0.0.1");
                RouterAddress="tcp://127.0.0.1:"+p;
                 ZMQ.proxy(sub,pub,null);
@@ -143,6 +154,68 @@ public class ZmqProxy {
       pt.start();
     }
 
+
+    private void  dbopt()
+    {
+        Thread dbopt=new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Thread.sleep(3000);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+                ZMQ.Socket sub=context.socket(SocketType.SUB);
+                boolean isc=  sub.connect(RouterAddress);
+                sub.subscribe(DBOpt.ClearDataDB.name());
+                sub.subscribe(DBOpt.DeleteDataDB.name());
+                sub.subscribe(DBOpt.DeleteDataDBMis.name());
+                sub.subscribe(DBOpt.QueryDataDB.name());
+                while (true) {
+                    String topic = sub.recvStr();
+                    String client = sub.recvStr();
+                    byte[] data = sub.recv();
+                    if (topic.equals(DBOpt.ClearDataDB.name())) {
+                        if (bdbOperatorUtil != null) {
+                            bdbOperatorUtil.truncateDB();
+                        }
+                        continue;
+                    }
+                    if (topic.equals(DBOpt.DeleteDataDB.name())) {
+                        if (bdbOperatorUtil != null) {
+                            bdbOperatorUtil.delete(new String(data));
+                        }
+                        continue;
+                    }
+                    if (topic.equals(DBOpt.DeleteDataDBMis.name())) {
+                        if (bdbOperatorUtil != null) {
+                            ByteBuffer buffer = ByteBuffer.wrap(data);
+                            long dt = buffer.getLong();
+                            byte[] dst = new byte[data.length - 8];
+                            buffer.get(dst);
+                            bdbOperatorUtil.delete(new String(dst), dt);
+                        }
+                        continue;
+                    }
+                    if (topic.equals(DBOpt.QueryDataDB.name())) {
+                        logger.info("处理数据库查询");
+                        if (bdbOperatorUtil != null) {
+                            List<byte[]> lst = bdbOperatorUtil.getDatas(new String(data));
+                            if (lst.isEmpty()) {
+                                lst.add(new byte[0]);
+                            }
+                            //查询数据返回
+                            logger.info("数据库查询返回");
+                            byte[] buf = serializeFactory.serialize(lst);
+                            queue.add(new InnerData(DBOpt.AckQueryData.name(), "Prxy", buf));
+                        }
+                        continue;
+                    }
+                }
+            }
+        });
+        dbopt.start();
+    }
     private void proxy()
     {
         Thread subt=new Thread(new Runnable() {
@@ -154,54 +227,24 @@ public class ZmqProxy {
                     throw new RuntimeException(e);
                 }
                 ZMQ.Socket sub=context.socket(SocketType.SUB);
-              boolean isc=  sub.connect(RouterAddress);
-                sub.subscribe("");
+               boolean isc=  sub.connect(RouterAddress);
+               sub.subscribe("");
+               //
+                HashSet<String> set=new HashSet<>();
+                set.add(DBOpt.ClearDataDB.name());
+                set.add(DBOpt.DeleteDataDB.name());
+                set.add(DBOpt.DeleteDataDBMis.name());
+                set.add(DBOpt.QueryDataDB.name());
                 while (true)
                 {
                     String topic= sub.recvStr();
                     String client=sub.recvStr();
                     byte[] data=sub.recv();
-                     if(topic.equals(DBOpt.ClearDataDB.name()))
-                     {
-                         if(bdbOperatorUtil!=null)
-                         {
-                             bdbOperatorUtil.clear();
-                         }
-                         continue;
-                     }
-                    if(topic.equals(DBOpt.DeleteDataDB.name()))
-                    {
-                        if(bdbOperatorUtil!=null)
-                        {
-                            bdbOperatorUtil.delete(new String(data));
-                        }
-                        continue;
-                    }
-                    if(topic.equals(DBOpt.DeleteDataDBMis.name()))
-                    {
-                        if(bdbOperatorUtil!=null)
-                        {
-                             ByteBuffer buffer=ByteBuffer.wrap(data);
-                             byte[]dst=new byte[data.length-8];
-                             buffer.get(dst);
-                            long dt= buffer.getLong();
-                            bdbOperatorUtil.delete(new String(dst),dt);
-                        }
-                        continue;
-                    }
-                    if(topic.equals(DBOpt.QueryDataDB.name()))
-                    {
-                        if(bdbOperatorUtil!=null)
-                        {
-                           List<byte[]> lst=bdbOperatorUtil.getDatas(new String(data));
-                           if(lst.isEmpty())
-                           {
-                               lst.add(new byte[0]);
-                           }
-                           queue.add(new InnerData(DBOpt.AckQueryData.name(),"Prxy",lst.get(0)));
-                        }
-                        continue;
-                    }
+
+                  if(set.contains(topic))
+                  {
+                      continue;//另外的线程处理
+                  }
                     InnerData innerData=new InnerData(topic,client,data);
                     queue.add(innerData);
                     if(dtanum.incrementAndGet()>maxNum&&threadnum.get()<maxThNum)
@@ -233,7 +276,7 @@ public class ZmqProxy {
         Thread reg=new Thread(new Runnable() {
             @Override
             public void run() {
-                ZMQ.Socket socket=ZMQ.context(1).socket(SocketType.REP);
+                ZMQ.Socket socket=context.socket(SocketType.REP);
                 if(!PubAddress.startsWith("tcp"))
                 {
                     PubAddress="tcp://"+PubAddress;
@@ -280,7 +323,6 @@ public class ZmqProxy {
                         int max = 0;
                         int min = 0;
                         for (var enty : mapRate.entrySet()) {
-
                             if (enty.getKey().startsWith(key)) {
                                 if (max < enty.getValue()) {
                                     max = enty.getValue();
@@ -294,6 +336,27 @@ public class ZmqProxy {
                         int count = mapNum.getOrDefault(key, 0);
                         String rsp = count + "_" + max + "_" + min;
                         socket.send(rsp);
+                    }
+                    else if(isreg.equals("3"))
+                    {
+                        //修改个数
+                        int count = mapNum.getOrDefault(key, 0);
+                        mapNum.put(key, count-1);
+                        //移除频率
+                        String keytmp = key + "_" + client;
+                        mapRate.remove(keytmp);
+                        //释放资源
+                        if(count-1==0)
+                        {
+                          PushSocket pushSocket=  map.getOrDefault(topic,null);
+                          if(pushSocket!=null)
+                          {
+                              pushSocket.close();
+                          }
+                        }
+                        socket.send("ok!");
+                        System.out.println("注销："+client);
+
                     }
                 }
             }
@@ -417,6 +480,18 @@ public class ZmqProxy {
         if(bdbOperatorUtil!=null)
         {
             bdbOperatorUtil.clearLog();
+        }
+    }
+
+    /**
+     * 保留最近一段数据 毫秒
+     * @param mis
+     */
+    public void delete(long mis)
+    {
+        if(bdbOperatorUtil!=null)
+        {
+            bdbOperatorUtil.delete(mis);
         }
     }
 }

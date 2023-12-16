@@ -132,9 +132,16 @@ public class PollSubscriber {
      */
     private  void  resetConnect(String topic)
     {
-      String address=   mapAddress.getOrDefault(topic,"");
-      socket.connect(address);
-      resetSet.remove(topic);
+        String address="";
+        try {
+             address = mapAddress.getOrDefault(topic, "");
+            socket.connect(address);
+            resetSet.remove(topic);
+        }
+        catch (Exception ex)
+        {
+            System.out.println(address);
+        }
       System.out.println("连接:"+client);
     }
     /**
@@ -168,6 +175,28 @@ public class PollSubscriber {
            start();
        }
 
+    }
+
+    /**
+     * 取消
+     * @param topic
+     */
+    public void unsubscribe(String topic)
+    {
+        ZMQ.Socket req=context.socket(SocketType.REQ);
+        req.connect(remoteAddress);
+        req.sendMore(topic);
+        req.sendMore(DataType.last.name());
+        req.sendMore(indety);
+        req.sendMore("3");//1=注册，2=上报频率,3=注销
+        req.sendMore("0");//频率值
+        req.send(client);//客户端
+        String aok= req.recvStr();
+        req.close();
+        map.remove(topic);
+        String address=  mapAddress.getOrDefault(topic,null);
+        socket.disconnect(address);
+        mapAddress.remove(topic);
     }
 
     /**

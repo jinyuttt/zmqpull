@@ -1,6 +1,8 @@
 package org.example.zmq;
 
 import com.sleepycat.je.*;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.io.File;
 import java.nio.ByteBuffer;
@@ -13,6 +15,7 @@ import java.util.concurrent.ConcurrentSkipListSet;
  * 本地数据库
  */
 public class BDBLocalUtility implements IBDBUtil{
+    Logger logger = LogManager.getLogger(BDBLocalUtility.class);
     private String dbEnvFilePath;
     private String databaseName;
     Environment myEnvironment = null;
@@ -47,18 +50,18 @@ public class BDBLocalUtility implements IBDBUtil{
     public boolean init() {
         try {
             File file = new File(dbEnvFilePath);
-
+            //环境句柄配置
             EnvironmentConfig envConfig = new EnvironmentConfig();
             envConfig.setAllowCreate(true);
-
+            envConfig.setTransactional(true);
             envConfig.setDurability(Durability.COMMIT_WRITE_NO_SYNC);
 
+           //数据库配置
             DatabaseConfig dbConfig = new DatabaseConfig();
-
-
             dbConfig.setAllowCreate(true);
-            dbConfig.setSortedDuplicates(true);
-           dbConfig.setDeferredWrite(true);
+            dbConfig.setSortedDuplicates(true);//允许多个值
+
+            dbConfig.setTransactional(true);
 
             myEnvironment = new Environment(file, envConfig);
 
@@ -81,8 +84,8 @@ public class BDBLocalUtility implements IBDBUtil{
 
             byte[]bytes=value.getBytes("UTF-8");
             ByteBuffer buffer= ByteBuffer.allocate(bytes.length+8);
-            buffer.put(bytes);
             buffer.putLong(System.currentTimeMillis());
+            buffer.put(bytes);
             DatabaseEntry theValue = new DatabaseEntry(buffer.array());
             utildb.put(null, theKey, theValue);
             if (isSync) {
@@ -101,8 +104,8 @@ public class BDBLocalUtility implements IBDBUtil{
             set.add(key);
             DatabaseEntry theKey = new DatabaseEntry(key.getBytes("UTF-8"));
             ByteBuffer buffer= ByteBuffer.allocate(data.length+8);
-            buffer.put(data);
             buffer.putLong(System.currentTimeMillis());
+            buffer.put(data);
             DatabaseEntry theValue = new DatabaseEntry(buffer.array());
             utildb.put(null, theKey, theValue);
             if (isSync) {
@@ -120,13 +123,15 @@ public class BDBLocalUtility implements IBDBUtil{
         try {
             DatabaseEntry theKey = new DatabaseEntry(key.getBytes("UTF-8"));
             DatabaseEntry theValue = new DatabaseEntry();
-
             utildb.get(null, theKey, theValue, LockMode.DEFAULT);
             if (theValue.getData() == null) {
                 return null;
             }
-
-            return new String(theValue.getData(), "UTF-8");
+            ByteBuffer buffer = ByteBuffer.wrap(theValue.getData());
+            buffer.getLong();
+            byte[] dst = new byte[theValue.getData().length - 8];
+            buffer.get(dst);
+            return new String(dst, "UTF-8");
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -147,10 +152,13 @@ public class BDBLocalUtility implements IBDBUtil{
             while (cursor.getNext(theKey, theValue, LockMode.DEFAULT) ==
                     OperationStatus.SUCCESS ) {
                 String keyString = new String(theKey.getData(), "UTF-8");
-                list.add(new String(theValue.getData(),"UTF-8"));
-
+                ByteBuffer buffer=ByteBuffer.wrap(theValue.getData());
+                buffer.getLong();
+                byte[]bytes=new byte[theValue.getData().length-8];
+                buffer.get(bytes);
+                list.add(new String(bytes,"UTF-8"));
             }
-            return list;
+
         } catch (Exception de) {
             System.err.println("Error accessing database." + de);
         } finally {
@@ -165,13 +173,15 @@ public class BDBLocalUtility implements IBDBUtil{
         try {
             DatabaseEntry theKey = new DatabaseEntry(key.getBytes("UTF-8"));
             DatabaseEntry theValue = new DatabaseEntry();
-
             utildb.get(null, theKey, theValue, LockMode.DEFAULT);
             if (theValue.getData() == null) {
                 return null;
             }
-
-            return theValue.getData();
+            ByteBuffer buffer=ByteBuffer.wrap(theValue.getData());
+            buffer.getLong();
+            byte[]dst=new  byte[theValue.getData().length-8];
+            buffer.get(dst);
+            return dst;
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -191,11 +201,14 @@ public class BDBLocalUtility implements IBDBUtil{
             DatabaseEntry theValue = new DatabaseEntry();
             while (cursor.getNext(theKey, theValue, LockMode.DEFAULT) ==
                     OperationStatus.SUCCESS ) {
-                String keyString = new String(theKey.getData(), "UTF-8");
-                list.add(theValue.getData());
-
+               // String keyString = new String(theKey.getData(), "UTF-8");
+                ByteBuffer buffer=ByteBuffer.wrap(theValue.getData());
+                buffer.getLong();
+                byte[]dst=new  byte[theValue.getData().length-8];
+                buffer.get(dst);
+                list.add(dst);
             }
-            return list;
+
         } catch (Exception de) {
             System.err.println("Error accessing database." + de);
         } finally {
@@ -236,9 +249,9 @@ public class BDBLocalUtility implements IBDBUtil{
             DatabaseEntry theValue = new DatabaseEntry();
             while (cursor.getNext(theKey, theValue, LockMode.DEFAULT) ==
                     OperationStatus.SUCCESS ) {
-                String keyString = new String(theKey.getData(), "UTF-8");
+              //  String keyString = new String(theKey.getData(), "UTF-8");
                 ByteBuffer buffer=ByteBuffer.wrap(theValue.getData());
-                long dt=buffer.getLong(theValue.getData().length-8);
+                long dt=buffer.getLong();
                 if(cur-dt>mis)
                 {
                     cursor.delete();
@@ -273,7 +286,7 @@ public class BDBLocalUtility implements IBDBUtil{
             long cur=System.currentTimeMillis();
             TransactionConfig  transactionConfig=new TransactionConfig();
             transactionConfig.setReadUncommitted(true);
-            transactionConfig.setSerializableIsolation(true);
+            //transactionConfig.setSerializableIsolation(true);
             txn=myEnvironment.beginTransaction(null,transactionConfig);
             CursorConfig cursorConfig=new CursorConfig();
             cursor=utildb.openCursor(txn,cursorConfig);
@@ -281,9 +294,9 @@ public class BDBLocalUtility implements IBDBUtil{
             DatabaseEntry theValue = new DatabaseEntry();
             while (cursor.getNext(theKey, theValue, LockMode.DEFAULT) ==
                     OperationStatus.SUCCESS ) {
-                String keyString = new String(theKey.getData(), "UTF-8");
+               // String keyString = new String(theKey.getData(), "UTF-8");
                 ByteBuffer buffer=ByteBuffer.wrap(theValue.getData());
-                long dt=buffer.getLong(theValue.getData().length-8);
+                long dt=buffer.getLong();
                 if(cur-dt>mis)
                 {
                     cursor.delete();
@@ -349,8 +362,9 @@ public class BDBLocalUtility implements IBDBUtil{
     public void clearLog() {
         if(myEnvironment!=null)
         {
-            myEnvironment.cleanLog();
-            myEnvironment.cleanLogFile();
+          int count=  myEnvironment.cleanLog();
+          boolean issucess=  myEnvironment.cleanLogFile();
+          logger.info("Log:"+count+"logFile:"+issucess);
         }
     }
 
@@ -358,6 +372,23 @@ public class BDBLocalUtility implements IBDBUtil{
     public long DBSize() {
          File file=new File(dbEnvFilePath);
         return file.length();
+    }
+
+    @Override
+    public void removeDB() {
+        if(myEnvironment!=null)
+        {
+            myEnvironment.removeDatabase(null,utildb.getDatabaseName());
+        }
+    }
+
+    @Override
+    public long truncateDB() {
+       if(myEnvironment!=null)
+       {
+          return myEnvironment.truncateDatabase(null,utildb.getDatabaseName(),true);
+       }
+       return  0;
     }
 
     public boolean sync() {

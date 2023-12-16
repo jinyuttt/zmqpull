@@ -10,5 +10,5 @@ public enum DBOpt {
     ClearDataDB,//清除
     QueryDataDB,//查询
 
-    AckQueryData;//返回数据库
+    AckQueryData;//返回数据库查询结果
 }

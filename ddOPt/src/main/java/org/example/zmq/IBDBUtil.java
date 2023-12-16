@@ -2,6 +2,10 @@ package org.example.zmq;
 
 import java.util.List;
 
+
+/**
+ * 数据库Berkeley DB操作接口
+ */
 public interface IBDBUtil {
 
     /**
@@ -95,4 +99,15 @@ public interface IBDBUtil {
      * @return
      */
     long DBSize();
+
+    /**
+     * 从环境中移除数据库
+     */
+    void removeDB();
+
+    /**
+     * 清空数据库
+     * @return
+     */
+    long truncateDB();
 }

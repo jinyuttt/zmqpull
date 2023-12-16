@@ -4,6 +4,8 @@ import com.sleepycat.je.*;
 import com.sleepycat.je.rep.ReplicatedEnvironment;
 import com.sleepycat.je.rep.ReplicationConfig;
 import org.apache.commons.io.FileUtils;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.io.File;
 import java.nio.ByteBuffer;
@@ -16,7 +18,7 @@ import java.util.concurrent.ConcurrentSkipListSet;
  * 集群数据库
  */
 public class BDBReplicatedUtil implements IBDBUtil {
-
+    Logger logger = LogManager.getLogger(BDBLocalUtility.class);
 
     /**
      * 集群交互地址
@@ -78,7 +80,7 @@ public class BDBReplicatedUtil implements IBDBUtil {
             dbConfig.setReplicated(true);
             dbConfig.setTransactional(true);
             dbConfig.setAllowCreate(true);
-            dbConfig.setSortedDuplicates(true);
+          //  dbConfig.setSortedDuplicates(true);
 
 
 
@@ -293,8 +295,8 @@ public class BDBReplicatedUtil implements IBDBUtil {
     public void clearLog() {
         if(replicatedEnvironment!=null)
         {
-            replicatedEnvironment.cleanLog();
-            replicatedEnvironment.cleanLogFile();
+           int count= replicatedEnvironment.cleanLog();
+           boolean issucess= replicatedEnvironment.cleanLogFile();
         }
     }
 
@@ -303,6 +305,23 @@ public class BDBReplicatedUtil implements IBDBUtil {
        File file=new File(dbEnvFilePath);
         return FileUtils.sizeOfDirectory(file);
 
+    }
+
+    @Override
+    public void removeDB() {
+        if(replicatedEnvironment!=null)
+        {
+            replicatedEnvironment.removeDatabase(null,utildb.getDatabaseName());
+        }
+    }
+
+    @Override
+    public long truncateDB() {
+       if(replicatedEnvironment!=null)
+        {
+            return replicatedEnvironment.truncateDatabase(null,utildb.getDatabaseName(),true);
+        }
+       return 0;
     }
 
 

@@ -1,12 +1,11 @@
 package org.example;
 
-import org.example.zmq.DataType;
-import org.example.zmq.ICallBack;
-import org.example.zmq.PollSubscriber;
-import org.example.zmq.ZmqProxy;
+import org.example.zmq.*;
 import org.zeromq.SocketType;
 import org.zeromq.ZMQ;
 
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.Random;
 
 /**
@@ -17,13 +16,94 @@ public class App
 {
     public static void main( String[] args )
     {
-//        proxy();
-//        sub();;
-//        push();
+
        test();
        suber();
+       dbtopic();
        push();
+     //   DBtest();
 
+    }
+    static void DBtest()
+    {
+        BDBLocalUtility bdbLocalUtility=new BDBLocalUtility("zmq","pull");
+        bdbLocalUtility.init();
+        for (int i=0;i<1000;i++
+             ) {
+            bdbLocalUtility.put("ttt",String.valueOf(System.currentTimeMillis()),false);
+        }
+      //  bdbLocalUtility.delete(100);
+       long count= bdbLocalUtility.truncateDB();
+        System.out.println(count);
+    }
+
+    static void  dbtopic()
+    {
+        Thread test=new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Thread.sleep(10000);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+                ZMQ.Socket socket= ZMQ.context(1).socket(SocketType.PUB);
+                socket.connect("tcp://127.0.0.1:4455");
+                // while (true) {
+                socket.sendMore(DBOpt.QueryDataDB.name());
+                socket.sendMore("AAA");
+                socket.send("ttt");
+
+                socket.sendMore(DBOpt.DeleteDataDBMis.name());
+                socket.sendMore("AAA");
+                byte[] bytes="ttt".getBytes(StandardCharsets.UTF_8);
+                ByteBuffer buffer=ByteBuffer.allocate(bytes.length+8);
+                buffer.putLong(1000);
+                buffer.put(bytes);
+                socket.send(buffer.array());
+
+                socket.sendMore(DBOpt.DeleteDataDB.name());
+                socket.sendMore("AAA");
+                socket.send("ttt");
+
+                socket.sendMore(DBOpt.ClearDataDB.name());
+                socket.sendMore("AAA");
+                socket.send("ttt");
+
+            }
+        });
+        test.start();
+
+    }
+    public static  void unsuber(PollSubscriber subscriber)
+    {
+        Thread ss=new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Thread.sleep(50000);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+                subscriber.unsubscribe("ttt");
+            }
+        });
+        ss.start();
+    }
+    public static  void testdb(ZmqProxy proxy)
+    {
+        Thread ss=new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Thread.sleep(50000);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+                proxy.delete(10000);
+            }
+        });
+        ss.start();
     }
     public static void test()
     {
@@ -32,6 +112,7 @@ public class App
         proxy.storePath="db";
         proxy.localNetStore="127.0.0.1:7689";
         proxy.start();
+      // testdb(proxy);
     }
     public static  void  suber()
     {
@@ -43,7 +124,7 @@ public class App
                 @Override
                 public void add(String topic, String client, byte[] data) {
 
-                    System.out.println(new String(data));
+                    System.out.println(topic+"_"+new String(data));
                     try {
                         Thread.sleep(random.nextInt(0,100));
                     } catch (InterruptedException e) {
@@ -51,6 +132,10 @@ public class App
                     }
                 }
             }, DataType.early);
+            if(i==0)
+            {
+                unsuber(subscriber);
+            }
         }
     }
 
@@ -66,12 +151,12 @@ public class App
         while (true) {
             socket.sendMore("ttt");
            socket.sendMore("AAA");
-            socket.send(String.valueOf(System.currentTimeMillis()));
-//            try {
-//                Thread.sleep(1000);
-//            } catch (InterruptedException e) {
-//                throw new RuntimeException(e);
-//            }
+            socket.send(String.valueOf("fff"+System.currentTimeMillis()));
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 

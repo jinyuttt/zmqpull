@@ -8,7 +8,7 @@ import java.util.concurrent.locks.ReentrantLock;
  * push结构
  */
 class PushSocket {
-    ReentrantLock  reentrantLock=new ReentrantLock();
+   private ReentrantLock  reentrantLock=new ReentrantLock();
 
     /**
      * IP地址
@@ -50,5 +50,16 @@ class PushSocket {
           return true;
        }
        return false;
+    }
+
+    public void  close()
+    {
+        try {
+            reentrantLock.lock();
+            socket.close();
+        }
+        finally {
+            reentrantLock.unlock();
+        }
     }
 }

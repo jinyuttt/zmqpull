@@ -43,17 +43,30 @@ public class App
             @Override
             public void run() {
                 try {
-                    Thread.sleep(10000);
+                    Thread.sleep(20000);
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);
                 }
                 ZMQ.Socket socket= ZMQ.context(1).socket(SocketType.PUB);
                 socket.connect("tcp://127.0.0.1:4455");
                 // while (true) {
-                socket.sendMore(DBOpt.QueryDataDB.name());
+
+                socket.sendMore("ddd");
                 socket.sendMore("AAA");
                 socket.send("ttt");
-
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+                socket.sendMore(DBOpt.DataDBQuery.name());
+                socket.sendMore("AAA");
+                socket.send("ttt");
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
                 socket.sendMore(DBOpt.DeleteDataDBMis.name());
                 socket.sendMore("AAA");
                 byte[] bytes="ttt".getBytes(StandardCharsets.UTF_8);
@@ -61,15 +74,27 @@ public class App
                 buffer.putLong(1000);
                 buffer.put(bytes);
                 socket.send(buffer.array());
-
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
                 socket.sendMore(DBOpt.DeleteDataDB.name());
                 socket.sendMore("AAA");
                 socket.send("ttt");
-
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
                 socket.sendMore(DBOpt.ClearDataDB.name());
                 socket.sendMore("AAA");
                 socket.send("ttt");
-
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
             }
         });
         test.start();
@@ -150,8 +175,8 @@ public class App
         socket.connect("tcp://127.0.0.1:4455");
         while (true) {
             socket.sendMore("ttt");
-           socket.sendMore("AAA");
-            socket.send(String.valueOf("fff"+System.currentTimeMillis()));
+            socket.sendMore("AAA");
+            socket.send(String.valueOf("hhhh"+System.currentTimeMillis()));
             try {
                 Thread.sleep(1000);
             } catch (InterruptedException e) {

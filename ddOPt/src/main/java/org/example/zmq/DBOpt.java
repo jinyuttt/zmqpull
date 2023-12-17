@@ -8,7 +8,7 @@ public enum DBOpt {
     DeleteDataDB,//删除
     DeleteDataDBMis,//删除
     ClearDataDB,//清除
-    QueryDataDB,//查询
+    DataDBQuery,//查询
 
     AckQueryData;//返回数据库查询结果
 }

@@ -241,7 +241,7 @@ public class BDBLocalUtility implements IBDBUtil{
             long cur=System.currentTimeMillis();
             TransactionConfig  transactionConfig=new TransactionConfig();
             transactionConfig.setReadUncommitted(true);
-            transactionConfig.setSerializableIsolation(true);
+           // transactionConfig.setSerializableIsolation(true);
             txn=myEnvironment.beginTransaction(null,transactionConfig);
             CursorConfig cursorConfig=new CursorConfig();
             cursor=utildb.openCursor(txn,cursorConfig);

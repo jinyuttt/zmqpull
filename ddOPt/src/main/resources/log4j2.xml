@@ -1,0 +1,8 @@
+<!--根标签，所有日志相关信息，都是在根标签中进行配置-->
+<Configuration status="debug" monitorInterval="10">
+    <!--
+     在根标签中，可以加属性
+     status="debug":日志框架本身的日志输出级别
+     monitorInterval="5":自动加载配置文件的间隔时间，不低于5秒
+    -->
+</Configuration>

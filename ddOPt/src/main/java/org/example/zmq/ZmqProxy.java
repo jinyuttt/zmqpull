@@ -167,17 +167,32 @@ public class ZmqProxy {
                 }
                 ZMQ.Socket sub=context.socket(SocketType.SUB);
                 boolean isc=  sub.connect(RouterAddress);
+                sub.subscribe(DBOpt.DataDBQuery.name());
                 sub.subscribe(DBOpt.ClearDataDB.name());
                 sub.subscribe(DBOpt.DeleteDataDB.name());
                 sub.subscribe(DBOpt.DeleteDataDBMis.name());
-                sub.subscribe(DBOpt.QueryDataDB.name());
+
                 while (true) {
                     String topic = sub.recvStr();
                     String client = sub.recvStr();
                     byte[] data = sub.recv();
                     if (topic.equals(DBOpt.ClearDataDB.name())) {
-                        if (bdbOperatorUtil != null) {
-                            bdbOperatorUtil.truncateDB();
+                        //清理数据库耗时
+                        if(bdbOperatorUtil!=null) {
+                            executor.execute(new Runnable() {
+                                @Override
+                                public void run() {
+                                    if (bdbOperatorUtil != null) {
+                                        try {
+                                            bdbOperatorUtil.truncateDB();
+                                        } catch (Exception ex) {
+                                            //使用另外方法
+                                            bdbOperatorUtil.clear();
+                                        }
+                                    }
+                                }
+                            });
+
                         }
                         continue;
                     }
@@ -197,7 +212,7 @@ public class ZmqProxy {
                         }
                         continue;
                     }
-                    if (topic.equals(DBOpt.QueryDataDB.name())) {
+                    if (topic.equals(DBOpt.DataDBQuery.name())) {
                         logger.info("处理数据库查询");
                         if (bdbOperatorUtil != null) {
                             List<byte[]> lst = bdbOperatorUtil.getDatas(new String(data));
@@ -234,7 +249,7 @@ public class ZmqProxy {
                 set.add(DBOpt.ClearDataDB.name());
                 set.add(DBOpt.DeleteDataDB.name());
                 set.add(DBOpt.DeleteDataDBMis.name());
-                set.add(DBOpt.QueryDataDB.name());
+                set.add(DBOpt.DataDBQuery.name());
                 while (true)
                 {
                     String topic= sub.recvStr();

@@ -147,16 +147,21 @@ public class ZmqProxy {
                     RouterAddress="inproc://"+RouterAddress;
                 }
                 sub.bind(SubAddress);
+                pub.bind(RouterAddress);
+                pub.setHWM(200000);
+                sub.setHWM(200000);
 
-               int p= pub.bindToRandomPort("tcp://127.0.0.1");
-               RouterAddress="tcp://127.0.0.1:"+p;
+              // int p= pub.bindToRandomPort("tcp://127.0.0.1");
+           //    RouterAddress="tcp://127.0.0.1:"+p;
                 ZMQ.proxy(sub,pub,null);
             }
         });
       pt.start();
     }
 
-
+    /**
+     * 数据库存储操作
+     */
     private void  dbopt()
     {
         Thread dbopt=new Thread(new Runnable() {
@@ -217,9 +222,9 @@ public class ZmqProxy {
                     if (topic.equals(DBOpt.DataDBQuery.name())) {
                         logger.info("处理数据库查询");
                         if (bdbOperatorUtil != null) {
-                            List<byte[]> lst = bdbOperatorUtil.getDatas(new String(data));
+                            List<KeyValue<byte[]>> lst = bdbOperatorUtil.getDatas(new String(data));
                             if (lst.isEmpty()) {
-                                lst.add(new byte[0]);
+                                lst.add(new KeyValue<byte[]>("",new byte[0]));
                             }
                             //查询数据返回
                             logger.info("数据库查询返回");
@@ -257,10 +262,13 @@ public class ZmqProxy {
                     String topic= sub.recvStr();
                     String client=sub.recvStr();
                     byte[] data=sub.recv();
-
-                  if(set.contains(topic))
-                  {
+                  if(set.contains(topic)) {
                       continue;//另外的线程处理
+                  }
+                  if(topic.equals("zmqtestconnect"))
+                  {
+                      logger.info("zmqtestconnect");
+                      continue;
                   }
                     InnerData innerData=new InnerData(topic,client,data);
                     queue.offer(innerData);
@@ -337,10 +345,10 @@ public class ZmqProxy {
                             executor.execute(new Runnable() {
                                 @Override
                                 public void run() {
-                                    List<byte[]> list = bdbOperatorUtil.getDatas(topic);
+                                    List<KeyValue<byte[]>> list = bdbOperatorUtil.getDatas(topic);
                                     for (int i = 0; i < list.size(); i++) {
-
-                                        while (!finalPushSocket.send(topic,"",list.get(i)))
+                                        KeyValue<byte[]> v=list.get(i);
+                                        while (!finalPushSocket.send(v.key,"",v.data))
                                         {
                                             //这里必须成功
                                         }

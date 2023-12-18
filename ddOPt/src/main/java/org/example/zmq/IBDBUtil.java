@@ -44,7 +44,8 @@ public interface IBDBUtil {
      * @param key
      * @return
      */
-    public List<String> getValues(String key);
+  //  public List<String> getValues(String key);
+    public List<KeyValue<String>> getValues(String key);
 
     /**
      * 获取byte
@@ -53,7 +54,9 @@ public interface IBDBUtil {
      */
     byte[] getData(String key);
 
-    List<byte[]> getDatas(String key);
+//    List<byte[]> getDatas(String key);
+
+    List<KeyValue<byte[]>> getDatas(String key);
 
     /**
      * 删除

@@ -47,6 +47,13 @@ class PushSocket {
         return  ip+":"+port;
     }
 
+    /**
+     * 发数据
+     * @param topic
+     * @param client
+     * @param data
+     * @return
+     */
     public boolean  send(String topic,String client,byte[]data)
     {
        if(reentrantLock.tryLock()) {

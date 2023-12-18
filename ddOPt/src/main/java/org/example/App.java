@@ -154,12 +154,12 @@ public class App
                     if(topic.equals(DBOpt.AckQueryData.name()))
                     {
                         HessianSerialize hessianSerialize=new HessianSerialize();
-                         List<byte[]>lst= hessianSerialize.deserialize(data, List.class);
+                         List<KeyValue<byte[]>>lst= hessianSerialize.deserialize(data, List.class);
                         System.out.println(topic+"_"+lst.size());
                         StringBuffer buffer=new StringBuffer();
-                        for (byte[] bytes:lst
+                        for (KeyValue<byte[]> bytes:lst
                              ) {
-                            buffer.append(new String(bytes));
+                            buffer.append(new String(bytes.data));
                             buffer.append("-");
                         }
                         System.out.println(topic+"_"+buffer.toString());
@@ -186,27 +186,34 @@ public class App
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
-        ZMQ.Socket socket= ZMQ.context(1).socket(SocketType.PUB);
-        socket.setHWM(300000);
-        socket.connect("tcp://127.0.0.1:4455");
+        SockPublisher publisher=new SockPublisher("tcp://127.0.0.1:4455");
         AtomicLong atomicLong=new AtomicLong(0);
+//        ZMQ.Socket socket= ZMQ.context(1).socket(SocketType.PUB);
+//        socket.setHWM(300000);
+//        socket.connect("tcp://127.0.0.1:4455");
+//
+//        socket.sendMore("mmm");
+//        socket.sendMore("AAA");
+//        socket.send(String.valueOf("hhhh"+System.currentTimeMillis())+"_"+atomicLong.get());
         while (true) {
-            socket.sendMore("ttt");
-            socket.sendMore("AAA");
-            socket.send(String.valueOf("hhhh"+System.currentTimeMillis())+"_"+atomicLong.incrementAndGet());
-            try {
-                Thread.sleep(1000);
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-            socket.sendMore("ccc");
-            socket.sendMore("AAA");
-            socket.send(String.valueOf("hhhh"+System.currentTimeMillis())+"_"+atomicLong.get());
-            try {
-                Thread.sleep(1000);
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
+//            socket.sendMore("ttt");
+//            socket.sendMore("AAA");
+//            socket.send(String.valueOf("hhhh"+System.currentTimeMillis())+"_"+atomicLong.incrementAndGet());
+            publisher.publish("ttt",String.valueOf("hhhh"+System.currentTimeMillis())+"_"+atomicLong.incrementAndGet());
+//            try {
+//                Thread.sleep(1000);
+//            } catch (InterruptedException e) {
+//                throw new RuntimeException(e);
+//            }
+//            socket.sendMore("ccc");
+//            socket.sendMore("AAA");
+//            socket.send(String.valueOf("hhhh"+System.currentTimeMillis())+"_"+atomicLong.get());
+            publisher.publish("ccc",String.valueOf("hhhh"+System.currentTimeMillis())+"_"+atomicLong.get());
+//            try {
+//                Thread.sleep(1000);
+//            } catch (InterruptedException e) {
+//                throw new RuntimeException(e);
+//            }
         }
     }
 

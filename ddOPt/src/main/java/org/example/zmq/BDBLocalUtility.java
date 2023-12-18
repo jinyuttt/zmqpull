@@ -139,8 +139,8 @@ public class BDBLocalUtility implements IBDBUtil{
     }
 
     @Override
-    public List<String> getValues(String key) {
-        List<String> list=new ArrayList<>();
+    public List<KeyValue<String>> getValues(String key) {
+        List<KeyValue<String>> list=new ArrayList<>();
         Cursor  cursor=null;
         try
         {
@@ -156,7 +156,10 @@ public class BDBLocalUtility implements IBDBUtil{
                 buffer.getLong();
                 byte[]bytes=new byte[theValue.getData().length-8];
                 buffer.get(bytes);
-                list.add(new String(bytes,"UTF-8"));
+               // list.add(new String(bytes,"UTF-8"));
+                KeyValue<String> v=new KeyValue<>(keyString,new String(bytes,"UTF-8"));
+                list.add(v);
+
             }
 
         } catch (Exception de) {
@@ -189,8 +192,8 @@ public class BDBLocalUtility implements IBDBUtil{
     }
 
     @Override
-    public List<byte[]> getDatas(String key) {
-        List<byte[]> list=new ArrayList<>();
+    public List<KeyValue<byte[]>> getDatas(String key) {
+        List<KeyValue<byte[]>> list=new ArrayList<>();
         Cursor  cursor=null;
         try
         {
@@ -201,12 +204,13 @@ public class BDBLocalUtility implements IBDBUtil{
             DatabaseEntry theValue = new DatabaseEntry();
             while (cursor.getNext(theKey, theValue, LockMode.DEFAULT) ==
                     OperationStatus.SUCCESS ) {
-               // String keyString = new String(theKey.getData(), "UTF-8");
+                String keyString = new String(theKey.getData(), "UTF-8");
                 ByteBuffer buffer=ByteBuffer.wrap(theValue.getData());
                 buffer.getLong();
                 byte[]dst=new  byte[theValue.getData().length-8];
                 buffer.get(dst);
-                list.add(dst);
+                KeyValue<byte[]> v=new KeyValue<>(keyString,dst);
+                list.add(v);
             }
 
         } catch (Exception de) {

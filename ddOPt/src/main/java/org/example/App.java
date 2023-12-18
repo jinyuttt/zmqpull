@@ -1,12 +1,15 @@
 package org.example;
 
+import HessianObj.HessianSerialize;
 import org.example.zmq.*;
 import org.zeromq.SocketType;
 import org.zeromq.ZMQ;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Random;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Hello world!
@@ -145,10 +148,22 @@ public class App
         for (int i=0;i<5;i++) {
             PollSubscriber subscriber = new PollSubscriber();
             subscriber.init("tcp://127.0.0.1:4456");
-            subscriber.subscribe("ttt", new ICallBack() {
+            subscriber.subscribe("", new ICallBack() {
                 @Override
                 public void add(String topic, String client, byte[] data) {
-
+                    if(topic.equals(DBOpt.AckQueryData.name()))
+                    {
+                        HessianSerialize hessianSerialize=new HessianSerialize();
+                         List<byte[]>lst= hessianSerialize.deserialize(data, List.class);
+                        System.out.println(topic+"_"+lst.size());
+                        StringBuffer buffer=new StringBuffer();
+                        for (byte[] bytes:lst
+                             ) {
+                            buffer.append(new String(bytes));
+                            buffer.append("-");
+                        }
+                        System.out.println(topic+"_"+buffer.toString());
+                    }
                     System.out.println(topic+"_"+new String(data));
                     try {
                         Thread.sleep(random.nextInt(0,100));
@@ -172,11 +187,21 @@ public class App
             throw new RuntimeException(e);
         }
         ZMQ.Socket socket= ZMQ.context(1).socket(SocketType.PUB);
+        socket.setHWM(300000);
         socket.connect("tcp://127.0.0.1:4455");
+        AtomicLong atomicLong=new AtomicLong(0);
         while (true) {
             socket.sendMore("ttt");
             socket.sendMore("AAA");
-            socket.send(String.valueOf("hhhh"+System.currentTimeMillis()));
+            socket.send(String.valueOf("hhhh"+System.currentTimeMillis())+"_"+atomicLong.incrementAndGet());
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+            socket.sendMore("ccc");
+            socket.sendMore("AAA");
+            socket.send(String.valueOf("hhhh"+System.currentTimeMillis())+"_"+atomicLong.get());
             try {
                 Thread.sleep(1000);
             } catch (InterruptedException e) {

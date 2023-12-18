@@ -86,6 +86,8 @@ public class ZmqProxy {
    private IBDBUtil bdbOperatorUtil=null;//数据库操作
 
     private SerializeFactory serializeFactory=new HessianSerialize();
+
+    private  PushSocket allSocket=null;
     /**
      * 开启
      */
@@ -261,7 +263,7 @@ public class ZmqProxy {
                       continue;//另外的线程处理
                   }
                     InnerData innerData=new InnerData(topic,client,data);
-                    queue.add(innerData);
+                    queue.offer(innerData);
                     if(dtanum.incrementAndGet()>maxNum&&threadnum.get()<maxThNum)
                     {
                         threadnum.incrementAndGet();
@@ -306,8 +308,23 @@ public class ZmqProxy {
                     String rate=socket.recvStr();
                     String client=socket.recvStr();
                     String key=topic+"_"+indenty;
+                    PushSocket pushSocket=null;
                     if(isreg.equals("1")) {//注册
-                        PushSocket pushSocket = map.getOrDefault(key, null);
+                        if(topic.isEmpty())
+                        {
+                            if(allSocket==null)
+                            {
+                                allSocket = createPush(topic, indenty);
+                                logger.info("创建所有主题发送地址："+allSocket.ip+":"+allSocket.port);
+
+                            }
+                            pushSocket=allSocket;
+                        }
+                        else
+                        {
+                            pushSocket = map.getOrDefault(key, null);
+                        }
+
                         if (pushSocket == null) {
                             pushSocket = createPush(topic, indenty);
                             map.put(key, pushSocket);
@@ -363,10 +380,10 @@ public class ZmqProxy {
                         //释放资源
                         if(count-1==0)
                         {
-                          PushSocket pushSocket=  map.getOrDefault(topic,null);
-                          if(pushSocket!=null)
+                          PushSocket sock=  map.getOrDefault(topic,null);
+                          if(sock!=null)
                           {
-                              pushSocket.close();
+                              sock.close();
                           }
                         }
                         socket.send("ok!");
@@ -393,6 +410,10 @@ public class ZmqProxy {
                     try {
                         InnerData data= queue.take();
                         dtanum.decrementAndGet();
+                        if(allSocket!=null)
+                        {
+                            allSocket.send(data.topic,data.client,data.data);
+                        }
                         Iterator<Map.Entry<String, PushSocket>> iterator = map.entrySet().iterator();
 
                         while (iterator.hasNext()) {

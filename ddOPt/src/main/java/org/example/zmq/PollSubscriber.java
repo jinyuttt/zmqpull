@@ -47,6 +47,8 @@ public class PollSubscriber {
 
     private  RecvicePack packRate=new RecvicePack();
 
+    private  boolean isEmpty=false;
+
     /**
      * 初始化
      * @param address
@@ -116,7 +118,7 @@ public class PollSubscriber {
        {
            int max=Integer.valueOf(info[1]);
            int min=Integer.valueOf(info[2]);
-           if (Math.abs(min-1000)>rate)
+           if (Math.abs(min-rate)>1000)
            {
                String addr=mapAddress.getOrDefault(topic,"");
                socket.disconnect(addr);
@@ -168,7 +170,11 @@ public class PollSubscriber {
        socket.connect(addr);
        req.close();
        map.put(topic,callBack);
-        mapAddress.put(topic,addr);
+       mapAddress.put(topic,addr);
+       if(topic.isEmpty())
+       {
+           isEmpty=true;
+       }
        if(isInit)
        {
            isInit=false;
@@ -224,7 +230,16 @@ public class PollSubscriber {
             packRate.add(topic);
             ICallBack callBack = map.getOrDefault(topic, null);
             if(callBack!=null)
-            callBack.add(topic, client, data);
+             callBack.add(topic, client, data);
+            else if(isEmpty)
+            {
+               callBack= map.getOrDefault("",null);
+               if(callBack!=null)
+               {
+                   callBack.add(topic, client, data);
+               }
+
+            }
         }
     }
 }

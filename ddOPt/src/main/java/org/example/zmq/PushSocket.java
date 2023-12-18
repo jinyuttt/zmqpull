@@ -32,8 +32,19 @@ class PushSocket {
      */
     public String identy;
 
+
+
     PushSocket(ZMQ.Socket socket) {
         this.socket = socket;
+    }
+
+    /**
+     * 返回地址
+     * @return
+     */
+    public  String toAddress()
+    {
+        return  ip+":"+port;
     }
 
     public boolean  send(String topic,String client,byte[]data)
